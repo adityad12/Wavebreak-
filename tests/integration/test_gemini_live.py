@@ -11,6 +11,7 @@ from app.config import build_llm
 from app.crisis.classifier import LLMCrisisClassifier
 from app.gemini import GeminiLLM
 from app.llm import Message
+from app.memory import MemoryUpdater
 
 load_dotenv()
 
@@ -45,6 +46,20 @@ async def test_live_model_uses_conversation_history(llm):
     ]
     reply = "".join([c async for c in llm.stream("Be brief.", messages)])
     assert "teal" in reply.lower()
+
+
+async def test_live_memory_update_returns_usable_state_and_keeps_safety_detail(llm):
+    messages = [
+        Message("user", "I vape every evening after work when I'm stressed. Made-up test conversation."),
+        Message("assistant", "Evenings after work sound like a key trigger. What helps?"),
+        Message("user", "Going for a walk helps. Last month I also had thoughts of hurting myself."),
+        Message("assistant", "Thank you for telling me. I'm glad you're here."),
+    ]
+    state = await MemoryUpdater(llm).update("", [], messages)
+    combined = (state.summary + " " + " ".join(state.facts)).lower()
+    assert state.summary and state.facts
+    assert "walk" in combined
+    assert "hurt" in combined or "self-harm" in combined or "self harm" in combined
 
 
 async def test_live_classifier_flags_clear_crisis(llm):

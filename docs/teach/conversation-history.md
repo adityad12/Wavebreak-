@@ -136,6 +136,29 @@ We chose to have the browser hold the history and the server store nothing (deci
 
 For Wavebreak, stored chats would mean holding sensitive conversations. That's why stateless won (see ADR [0002](../adr/0002-no-real-user-data-until-paid-llm-tier.md)).
 
+## 7. Remembering more without sending more: summary and notes
+
+The 20-message window forgets older messages. To keep the gist, we added two things (decision [0009](../decisions/0009-reducing-history-tokens.md)):
+
+- a **rolling summary**: a short paragraph of what the conversation was about
+- **notes**: a short list of facts worth keeping (triggers, what helps)
+
+When the page's history reaches 16 messages, it sends the oldest 8 to `/chat/memory`. One extra model call returns updated JSON, and the page then drops those 8 messages:
+
+```javascript
+const n = history.length - KEEP_RECENT;
+const r = await fetch("/chat/memory", { ..., body: JSON.stringify({ summary, facts, messages: history.slice(0, n) }) });
+if (r.ok) { summary = d.summary; facts = d.facts; history.splice(0, n); }
+```
+
+On the next message, `system_with_memory` (`app/conversation.py`) adds them to the system prompt as background, and the model sees: rules, then what we remember, then the recent messages.
+
+Three things to notice:
+
+- **The model call returns text, so we parse it.** `parse_memory` (`app/memory.py`) strips code fences, checks the shape, and clamps the size. If the model's answer isn't usable, we raise an error and keep the old memory. Never trust model output to be well-formed.
+- **The memory comes from the browser, so it is untrusted.** The server caps its length and tells the model to treat it as information, never as instructions.
+- **A summary can lose things.** For safety, the crisis check still reads the last three raw user messages plus the summary. It never relies on the summary alone.
+
 ## Check yourself (try to answer before opening each one)
 
 **Q1.** You send "What's my name?" with an empty history. What happens?
@@ -175,12 +198,21 @@ A short reply like "yes" can only be judged with earlier messages, so the classi
 
 </details>
 
+**Q5.** Why does the crisis check get the summary as well as the last three raw messages?
+
+<details><summary>Answer</summary>
+
+A summary can lose or soften details, so it shouldn't be the only thing the safety layer relies on. The raw recent messages show the exact words. The summary adds older context that the raw messages no longer contain. Together they cover more than either alone.
+
+</details>
+
 ## Try it yourself (about 10 minutes)
 
 1. Open **http://127.0.0.1:8000**. Tell the Companion a made-up fact ("my cat is called Pixel"), send two other messages, then ask "what's my cat's name?" It should remember.
 2. Refresh the page and ask again. It forgets. Why? (Section 3, step A.)
 3. In `app/conversation.py`, set `MAX_HISTORY = 2`, restart the server, and repeat step 1. What breaks? Put it back to 20 afterwards.
 4. Run `python -m pytest tests/unit/test_conversation.py` before and after step 3, and see which test fails.
+5. Send about 10 messages of a made-up story (say, a stressful job and an evening habit). After the 16th history entry, a "What I remember from earlier in this chat" box appears. Open it. Is anything wrong or missing? Why might that matter for safety?
 
 ## Primary source
 

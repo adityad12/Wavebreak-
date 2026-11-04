@@ -10,15 +10,22 @@ from app.messages import CRISIS_MESSAGE
 class FakeLLM:
     """Answers the classifier prompt with `verdict` and the Companion with `reply`."""
 
-    def __init__(self, verdict="NO", reply="Try a slow breath.", fail=False, fail_stream=False):
+    def __init__(self, verdict="NO", reply="Try a slow breath.", fail=False, fail_stream=False,
+                 memory_reply='{"summary": "Smokes when stressed.", "facts": ["evenings are hard"]}'):
         self.verdict, self.reply, self.fail, self.fail_stream = verdict, reply, fail, fail_stream
+        self.memory_reply = memory_reply
         self.companion_calls = 0
         self.companion_messages = None
+        self.companion_system = None
         self.classifier_prompts = []
+        self.memory_prompts = []
 
     async def complete(self, system, user):
         if self.fail:
             raise LLMUnavailable("down")
+        if "maintain memory" in system:
+            self.memory_prompts.append(user)
+            return self.memory_reply
         self.classifier_prompts.append(user)
         return self.verdict
 
@@ -27,6 +34,7 @@ class FakeLLM:
             raise LLMUnavailable("down")
         self.companion_calls += 1
         self.companion_messages = messages
+        self.companion_system = system
         for word in self.reply.split(" "):
             yield word + " "
 
@@ -143,6 +151,61 @@ def test_stream_passes_history_to_model():
     history = [{"role": "user", "content": "my name is Sam"}, {"role": "assistant", "content": "Hi Sam"}]
     TestClient(create_app(llm)).post("/chat/stream", json={"message": "hello again", "history": history})
     assert [m.content for m in llm.companion_messages] == ["my name is Sam", "Hi Sam", "hello again"]
+
+
+def test_summary_and_facts_reach_the_companion_system_prompt():
+    llm = FakeLLM()
+    TestClient(create_app(llm)).post(
+        "/chat", json={"message": "hi", "summary": "Smokes when stressed.", "facts": ["evenings are hard"]}
+    )
+    assert "Smokes when stressed." in llm.companion_system
+    assert "- evenings are hard" in llm.companion_system
+
+
+def test_stream_also_uses_summary_and_facts():
+    llm = FakeLLM()
+    TestClient(create_app(llm)).post("/chat/stream", json={"message": "hi", "facts": ["likes running"]})
+    assert "- likes running" in llm.companion_system
+
+
+def test_crisis_check_sees_remembered_summary():
+    llm = FakeLLM()
+    TestClient(create_app(llm)).post(
+        "/chat", json={"message": "yes", "summary": "They mentioned wanting to end things."}
+    )
+    assert "wanting to end things" in llm.classifier_prompts[0]
+
+
+def test_memory_endpoint_folds_messages_into_summary_and_facts():
+    llm = FakeLLM()
+    body = TestClient(create_app(llm)).post("/chat/memory", json={
+        "summary": "",
+        "facts": [],
+        "messages": [{"role": "user", "content": "I smoke when stressed"}, {"role": "assistant", "content": "I hear you"}],
+    }).json()
+    assert body == {"summary": "Smokes when stressed.", "facts": ["evenings are hard"]}
+    assert "User: I smoke when stressed" in llm.memory_prompts[0]
+
+
+def test_memory_endpoint_503_when_model_unavailable():
+    client = TestClient(create_app(FakeLLM(fail=True)))
+    response = client.post("/chat/memory", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert response.status_code == 503
+
+
+def test_memory_endpoint_503_when_model_output_is_unusable():
+    client = TestClient(create_app(FakeLLM(memory_reply="here you go!")))
+    response = client.post("/chat/memory", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert response.status_code == 503
+
+
+def test_memory_and_chat_limits_enforced():
+    client = TestClient(create_app(FakeLLM()))
+    assert client.post("/chat/memory", json={"messages": []}).status_code == 422
+    too_many_facts = ["f"] * 13
+    assert client.post("/chat", json={"message": "hi", "facts": too_many_facts}).status_code == 422
+    assert client.post("/chat", json={"message": "hi", "summary": "x" * 1501}).status_code == 422
+    assert client.post("/chat", json={"message": "hi", "facts": ["x" * 201]}).status_code == 422
 
 
 def test_index_serves_chat_page_with_closable_disclaimer():

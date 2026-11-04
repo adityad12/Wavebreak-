@@ -17,6 +17,6 @@ class LLMCrisisClassifier:
         prompt = text
         if context:
             earlier = "\n".join(f"- {c}" for c in context)
-            prompt = f"Earlier messages from the user:\n{earlier}\n\nLatest message:\n{text}"
+            prompt = f"Earlier context:\n{earlier}\n\nLatest message:\n{text}"
         answer = await self._llm.complete(_SYSTEM, prompt)
         return answer.strip().upper().startswith("YES")

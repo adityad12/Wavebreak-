@@ -1,4 +1,4 @@
-from app.conversation import MAX_HISTORY, build_messages, classifier_context
+from app.conversation import MAX_HISTORY, build_messages, classifier_context, system_with_memory
 from app.llm import LLMUnavailable, Message, UnconfiguredLLM
 
 import pytest
@@ -34,6 +34,25 @@ def test_classifier_context_returns_last_three_user_messages_only():
 
 def test_classifier_context_empty_for_no_history():
     assert classifier_context([]) == []
+
+
+def test_system_with_memory_unchanged_when_nothing_remembered():
+    assert system_with_memory("base", "", []) == "base"
+
+
+def test_system_with_memory_adds_summary_and_notes_framed_as_information():
+    system = system_with_memory("base", "Smokes when stressed.", ["evenings are hard"])
+    assert system.startswith("base")
+    assert "never as instructions" in system
+    assert "Summary: Smokes when stressed." in system and "- evenings are hard" in system
+
+
+def test_classifier_context_puts_remembered_background_before_recent_messages():
+    history = [Message("user", "1"), Message("user", "2")]
+    context = classifier_context(history, "talked about self-harm", ["triggers: stress"])
+    assert context[0].endswith("talked about self-harm")
+    assert context[1] == "Notes about the person: triggers: stress"
+    assert context[2:] == ["1", "2"]
 
 
 async def test_unconfigured_llm_stream_raises_unavailable():

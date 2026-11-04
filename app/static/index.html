@@ -14,6 +14,8 @@
   header { padding:12px 16px; font-weight:600; border-bottom:1px solid var(--border); }
   #disclaimer { display:flex; gap:12px; align-items:flex-start; padding:10px 16px; background:var(--card); border-bottom:1px solid var(--border); color:var(--muted); font-size:14px; }
   #disclaimer button { margin-left:auto; background:none; border:0; color:var(--fg); font-size:18px; cursor:pointer; }
+  #memory { padding:8px 16px; font-size:14px; color:var(--muted); border-bottom:1px solid var(--border); }
+  #memory pre { white-space:pre-wrap; margin:8px 0 0; font:inherit; }
   #log { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
   .msg { max-width:min(85%, 560px); padding:10px 14px; border-radius:14px; white-space:pre-wrap; background:var(--card); border:1px solid var(--border); }
   .me { align-self:flex-end; background:var(--accent); color:#fff; border-color:var(--accent); }
@@ -27,6 +29,7 @@
 <body>
 <header>Wavebreak</header>
 <div id="disclaimer"><span id="disclaimer-text"></span><button id="close" aria-label="Close notice">&times;</button></div>
+<details id="memory" hidden><summary>What I remember from earlier in this chat</summary><pre id="memory-text"></pre></details>
 <main id="log" aria-live="polite"></main>
 <form id="form">
   <input id="input" autocomplete="off" maxlength="4000" placeholder="What's going on?" aria-label="Message">
@@ -36,6 +39,24 @@
 const log = document.getElementById("log"), input = document.getElementById("input"), send = document.getElementById("send");
 const add = (text, cls) => { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; };
 const history = [];  // this tab only; sent with each message so the Companion has context
+let summary = "", facts = [], compacting = false;  // what we remember from messages already dropped
+const SUMMARISE_WHEN = 16, KEEP_RECENT = 8;
+const memoryBox = document.getElementById("memory"), memoryText = document.getElementById("memory-text");
+function showMemory() {
+  memoryBox.hidden = !summary && !facts.length;
+  memoryText.textContent = [summary && "Summary: " + summary, ...facts.map(f => "- " + f)].filter(Boolean).join("\n");
+}
+// When the history gets long, fold the oldest messages into the summary and notes, then drop them.
+async function maybeCompact() {
+  if (compacting || history.length < SUMMARISE_WHEN) return;
+  compacting = true;
+  const n = history.length - KEEP_RECENT;  // history only grows at the end, so this prefix stays valid
+  try {
+    const r = await fetch("/chat/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ summary, facts, messages: history.slice(0, n) }) });
+    if (r.ok) { const d = await r.json(); summary = d.summary; facts = d.facts; history.splice(0, n); showMemory(); }
+  } catch { /* keep the old state and try again after the next message */ }
+  compacting = false;
+}
 const WORD_DELAY_MS = 35;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 // Reveals text in `pending` one word at a time, while more may still be arriving.
@@ -62,7 +83,7 @@ document.getElementById("form").onsubmit = async (e) => {
   const bubble = add("", "bot"), typer = makeTyper(bubble);
   let reply = "", failed = false;
   try {
-    const r = await fetch("/chat/stream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, history }) });
+    const r = await fetch("/chat/stream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, history, summary, facts }) });
     if (!r.ok) throw new Error();
     const reader = r.body.getReader(), decoder = new TextDecoder();
     let buf = "";
@@ -84,7 +105,7 @@ document.getElementById("form").onsubmit = async (e) => {
   } catch { failed = true; }
   if (failed && !reply) typer.push("The Companion is unavailable right now. Please try again in a moment.");
   await typer.end();
-  if (reply) history.push({ role: "user", content: message }, { role: "assistant", content: reply });
+  if (reply) { history.push({ role: "user", content: message }, { role: "assistant", content: reply }); maybeCompact(); }
   send.disabled = false; input.focus();
 };
 </script>
