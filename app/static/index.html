@@ -20,6 +20,11 @@
   .msg { max-width:min(85%, 560px); padding:10px 14px; border-radius:14px; white-space:pre-wrap; background:var(--card); border:1px solid var(--border); }
   .me { align-self:flex-end; background:var(--accent); color:#fff; border-color:var(--accent); }
   .crisis { background:var(--crisis); }
+  .dots span { display:inline-block; width:7px; height:7px; margin:0 2px; border-radius:50%; background:var(--muted); animation:blink 1.2s infinite; }
+  .dots span:nth-child(2) { animation-delay:.2s; }
+  .dots span:nth-child(3) { animation-delay:.4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity:.25; } 40% { opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { .dots span { animation:none; } }
   form { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
   input { flex:1; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--fg); font:inherit; }
   form button { padding:0 18px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
@@ -60,18 +65,25 @@ async function maybeCompact() {
 const WORD_DELAY_MS = 35;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 // Reveals text in `pending` one word at a time, while more may still be arriving.
-function makeTyper(bubble) {
-  let pending = "", shown = "", done = false;
+// The bubble is only created when the first word is ready, so no empty box appears while waiting.
+function makeTyper(createBubble) {
+  let pending = "", shown = "", done = false, bubble = null, crisis = false;
   const finished = (async () => {
     while (!done || pending) {
       const m = pending.match(/^\s*\S+\s*/);
       if (!m) { await sleep(20); continue; }
       pending = pending.slice(m[0].length);
-      shown += m[0]; bubble.textContent = shown; log.scrollTop = log.scrollHeight;
+      shown += m[0];
+      if (!bubble) { bubble = createBubble(); if (crisis) bubble.classList.add("crisis"); }
+      bubble.textContent = shown; log.scrollTop = log.scrollHeight;
       await sleep(WORD_DELAY_MS);
     }
   })();
-  return { push: (t) => { pending += t; }, end: () => { done = true; return finished; }, text: () => shown + pending };
+  return {
+    push: (t) => { pending += t; },
+    markCrisis: () => { crisis = true; if (bubble) bubble.classList.add("crisis"); },
+    end: () => { done = true; return finished; },
+  };
 }
 fetch("/chat/start").then(r => r.json()).then(d => document.getElementById("disclaimer-text").textContent = d.disclaimer);
 document.getElementById("close").onclick = () => document.getElementById("disclaimer").remove();
@@ -80,7 +92,11 @@ document.getElementById("form").onsubmit = async (e) => {
   const message = input.value.trim();
   if (!message) return;
   add(message, "me"); input.value = ""; send.disabled = true;
-  const bubble = add("", "bot"), typer = makeTyper(bubble);
+  // Typing dots show while we wait; the reply bubble replaces them when the first word is ready.
+  const dots = add("", "bot dots");
+  dots.setAttribute("aria-label", "The Companion is typing");
+  dots.innerHTML = "<span></span><span></span><span></span>";
+  const typer = makeTyper(() => { dots.remove(); return add("", "bot"); });
   let reply = "", failed = false;
   try {
     const r = await fetch("/chat/stream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, history, summary, facts }) });
@@ -91,7 +107,7 @@ document.getElementById("form").onsubmit = async (e) => {
       if (!line.trim()) return;
       const ev = JSON.parse(line);
       if (ev.type === "delta") { reply += ev.text; typer.push(ev.text); }
-      else if (ev.type === "crisis") { reply = ev.text; bubble.classList.add("crisis"); typer.push(ev.text); }
+      else if (ev.type === "crisis") { reply = ev.text; typer.markCrisis(); typer.push(ev.text); }
       else if (ev.type === "error") failed = true;
     };
     for (;;) {
@@ -105,6 +121,7 @@ document.getElementById("form").onsubmit = async (e) => {
   } catch { failed = true; }
   if (failed && !reply) typer.push("The Companion is unavailable right now. Please try again in a moment.");
   await typer.end();
+  dots.remove();  // no-op if the reply already replaced them
   if (reply) { history.push({ role: "user", content: message }, { role: "assistant", content: reply }); maybeCompact(); }
   send.disabled = false; input.focus();
 };
