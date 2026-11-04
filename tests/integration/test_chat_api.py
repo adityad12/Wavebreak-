@@ -221,6 +221,7 @@ def test_page_has_stop_control_and_stop_shortcuts():
     assert 'class="stop-icon"' in html and "Stop generating" in html
     assert "AbortController" in html and '"Escape"' in html
     assert "trailing whitespace" in html  # guard against the stuck-typer bug returning
+    assert "What happened?" in html and "Edit prompt" in html
 
 
 def test_disclaimer_endpoint():

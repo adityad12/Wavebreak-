@@ -12,5 +12,5 @@ That harness found a real bug (a whitespace-only final chunk left the page stuck
 
 ## Done when
 - Browser tests (for example Playwright) run in the repo against a fake LLM.
-- They cover: stop by Ctrl+C, Escape and the button; Ctrl+C with selection still copies; Enter ignored mid-reply; a whitespace-only final chunk; crisis styling; memory compaction after 16 messages.
+- They cover: stop by Ctrl+C, Escape and the button; Ctrl+C with selection still copies; Enter ignored mid-reply; a whitespace-only final chunk; crisis styling; memory compaction after 16 messages; the "What happened? / Edit prompt" notice (edit replaces the stopped exchange in the chat and the history, sending something else dismisses it, stopping before the first word removes only the user bubble).
 - Consider moving the script out of the HTML into its own file so it can also be unit-tested with Node.

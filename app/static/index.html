@@ -92,7 +92,11 @@
   #send .stop-icon { display:none; }
   #send.stop .send-icon { display:none; }
   #send.stop .stop-icon { display:block; }
+  .stopped { display:flex; align-items:center; gap:12px; flex-wrap:wrap; align-self:flex-start; padding:8px 8px 8px 16px; border-radius:999px; background:var(--surface); border:1px dashed var(--line); color:var(--muted); font-size:14.5px; }
+  .stopped button { border:1px solid var(--accent); border-radius:999px; background:transparent; color:var(--accent-deep); font:inherit; font-size:14px; padding:4px 14px; cursor:pointer; }
+  .stopped button:hover { background:var(--accent); color:var(--accent-ink); }
   button:focus-visible, summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  @media (prefers-color-scheme: dark) { .stopped button { color:var(--accent); } .stopped button:hover { color:var(--accent-ink); } }
 
   @media (max-width: 520px) { .tag { display:none; } .app { padding:0 12px; } }
   @media (prefers-reduced-motion: reduce) {
@@ -211,18 +215,38 @@ document.addEventListener("keydown", (e) => {
 });
 fetch("/chat/start").then(r => r.json()).then(d => document.getElementById("disclaimer-text").textContent = d.disclaimer);
 document.getElementById("close").onclick = () => document.getElementById("disclaimer").remove();
+// After a reply is stopped, offer to edit the prompt. Editing replaces the stopped exchange, in the chat
+// and in the history, so the Companion never sees the abandoned attempt.
+let stoppedNotice = null;
+function showStoppedNotice(message, nodes, entries) {
+  const box = document.createElement("div");
+  box.className = "msg stopped";
+  const label = document.createElement("span"); label.textContent = "What happened?";
+  const edit = document.createElement("button"); edit.type = "button"; edit.textContent = "Edit prompt";
+  edit.onclick = () => {
+    [...nodes, box].forEach(n => n.remove());
+    for (const entry of entries) { const i = history.indexOf(entry); if (i !== -1) history.splice(i, 1); }
+    stoppedNotice = null;
+    input.value = message; autosize(); input.focus(); input.setSelectionRange(message.length, message.length);
+  };
+  box.append(label, edit);
+  log.appendChild(box); log.scrollTop = log.scrollHeight;
+  stoppedNotice = box;
+}
 form.onsubmit = async (e) => {
   e.preventDefault();
   if (current) { stopGeneration(); return; }  // the button is a stop button while a reply is being written
   const message = input.value.trim();
   if (!message) return;
+  stoppedNotice?.remove(); stoppedNotice = null;  // the user moved on, so the old notice no longer applies
   document.getElementById("empty")?.remove();
-  add(message, "me"); input.value = ""; autosize();
+  const meBubble = add(message, "me"); input.value = ""; autosize();
   // Typing dots show while we wait; the reply bubble replaces them when the first word is ready.
   const dots = add("", "bot dots");
   dots.setAttribute("aria-label", "The Companion is typing");
   dots.innerHTML = "<span></span><span></span><span></span>";
-  const typer = makeTyper(() => { dots.remove(); return add("", "bot"); });
+  let botBubble = null;
+  const typer = makeTyper(() => { dots.remove(); return (botBubble = add("", "bot")); });
   const run = current = { controller: new AbortController(), stopped: false };
   setGenerating(true);
   let reply = "", failed = false;
@@ -256,8 +280,13 @@ form.onsubmit = async (e) => {
     saved = reply;
   }
   dots.remove();  // no-op if the reply already replaced them
-  if (saved.trim()) { history.push({ role: "user", content: message }, { role: "assistant", content: saved }); maybeCompact(); }
+  const entries = [];
+  if (saved.trim()) {
+    entries.push({ role: "user", content: message }, { role: "assistant", content: saved });
+    history.push(...entries); maybeCompact();
+  }
   current = null; setGenerating(false); input.focus();
+  if (run.stopped) showStoppedNotice(message, [meBubble, botBubble].filter(Boolean), entries);
 };
 </script>
 </body>
