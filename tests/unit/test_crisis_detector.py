@@ -7,8 +7,10 @@ from app.llm import LLMUnavailable
 class FakeLLM:
     def __init__(self, answer="NO", fail=False):
         self.answer, self.fail = answer, fail
+        self.prompts = []
 
     async def complete(self, system, user):
+        self.prompts.append(user)
         if self.fail:
             raise LLMUnavailable("down")
         return self.answer
@@ -37,6 +39,19 @@ def test_keywords_require_a_word_boundary():
 async def test_classifier_parses_yes_and_no():
     assert await LLMCrisisClassifier(FakeLLM(" yes.")).is_crisis("x") is True
     assert await LLMCrisisClassifier(FakeLLM("No")).is_crisis("x") is False
+
+
+async def test_classifier_prompt_is_just_the_message_without_context():
+    llm = FakeLLM()
+    await LLMCrisisClassifier(llm).is_crisis("hello")
+    assert llm.prompts == ["hello"]
+
+
+async def test_classifier_prompt_includes_context_before_latest_message():
+    llm = FakeLLM()
+    await LLMCrisisClassifier(llm).is_crisis("yes", ["thinking of ending things"])
+    assert "thinking of ending things" in llm.prompts[0]
+    assert llm.prompts[0].endswith("Latest message:\nyes")
 
 
 async def test_keyword_alone_declares_crisis():

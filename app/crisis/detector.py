@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 
 class CrisisClassifier(Protocol):
-    async def is_crisis(self, text: str) -> bool: ...
+    async def is_crisis(self, text: str, context: list[str] | None = None) -> bool: ...
 
 
 @dataclass
@@ -25,12 +25,14 @@ class CrisisDetector:
     def __init__(self, classifier: CrisisClassifier):
         self._classifier = classifier
 
-    async def check(self, text: str) -> CrisisResult:
+    async def check(self, text: str, context: list[str] | None = None) -> CrisisResult:
+        # Keywords look at the latest message only, so one early hit doesn't
+        # re-trigger on every later turn. The classifier also sees recent context.
         hits = keyword_hits(text)
         flagged = False
         failed = False
         try:
-            flagged = await self._classifier.is_crisis(text)
+            flagged = await self._classifier.is_crisis(text, context)
         except Exception:
             # On failure we fall back to keywords only; see docs/decisions/0005.
             log.exception("Crisis classifier failed")

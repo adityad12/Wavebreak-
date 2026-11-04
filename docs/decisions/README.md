@@ -34,3 +34,5 @@ Short records of choices between real alternatives: the options, and what you pi
 - [0005 Classifier failure behaviour](0005-classifier-failure-behaviour.md) — **open**
 - [0006 Default Gemini model](0006-default-gemini-model.md)
 - [0007 Crisis classifier model](0007-crisis-classifier-model.md) — **open**
+- [0008 Conversation history and streaming design](0008-stateless-history-and-streaming.md)
+- [0009 Reducing history tokens](0009-reducing-history-tokens.md) — **open**

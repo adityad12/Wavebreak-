@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from app.config import build_llm
 from app.crisis.classifier import LLMCrisisClassifier
 from app.gemini import GeminiLLM
+from app.llm import Message
 
 load_dotenv()
 
@@ -29,6 +30,21 @@ def llm():
 async def test_live_completion_returns_text(llm):
     reply = await llm.complete("Reply with one short sentence.", "Say hello.")
     assert reply.strip()
+
+
+async def test_live_stream_arrives_in_chunks(llm):
+    chunks = [c async for c in llm.stream("Be brief.", [Message("user", "Count from one to ten in words.")])]
+    assert chunks and "".join(chunks).strip()
+
+
+async def test_live_model_uses_conversation_history(llm):
+    messages = [
+        Message("user", "For this test, my favourite colour is teal. Just say OK."),
+        Message("assistant", "OK."),
+        Message("user", "What is my favourite colour? Answer in one word."),
+    ]
+    reply = "".join([c async for c in llm.stream("Be brief.", messages)])
+    assert "teal" in reply.lower()
 
 
 async def test_live_classifier_flags_clear_crisis(llm):

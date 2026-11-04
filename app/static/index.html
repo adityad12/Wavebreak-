@@ -34,7 +34,24 @@
 </form>
 <script>
 const log = document.getElementById("log"), input = document.getElementById("input"), send = document.getElementById("send");
-const add = (text, cls) => { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; };
+const add = (text, cls) => { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; };
+const history = [];  // this tab only; sent with each message so the Companion has context
+const WORD_DELAY_MS = 35;
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+// Reveals text in `pending` one word at a time, while more may still be arriving.
+function makeTyper(bubble) {
+  let pending = "", shown = "", done = false;
+  const finished = (async () => {
+    while (!done || pending) {
+      const m = pending.match(/^\s*\S+\s*/);
+      if (!m) { await sleep(20); continue; }
+      pending = pending.slice(m[0].length);
+      shown += m[0]; bubble.textContent = shown; log.scrollTop = log.scrollHeight;
+      await sleep(WORD_DELAY_MS);
+    }
+  })();
+  return { push: (t) => { pending += t; }, end: () => { done = true; return finished; }, text: () => shown + pending };
+}
 fetch("/chat/start").then(r => r.json()).then(d => document.getElementById("disclaimer-text").textContent = d.disclaimer);
 document.getElementById("close").onclick = () => document.getElementById("disclaimer").remove();
 document.getElementById("form").onsubmit = async (e) => {
@@ -42,12 +59,32 @@ document.getElementById("form").onsubmit = async (e) => {
   const message = input.value.trim();
   if (!message) return;
   add(message, "me"); input.value = ""; send.disabled = true;
+  const bubble = add("", "bot"), typer = makeTyper(bubble);
+  let reply = "", failed = false;
   try {
-    const r = await fetch("/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
+    const r = await fetch("/chat/stream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, history }) });
     if (!r.ok) throw new Error();
-    const d = await r.json();
-    add(d.reply, d.crisis ? "crisis" : "bot");
-  } catch { add("The Companion is unavailable right now. Please try again in a moment.", "bot"); }
+    const reader = r.body.getReader(), decoder = new TextDecoder();
+    let buf = "";
+    const handle = (line) => {
+      if (!line.trim()) return;
+      const ev = JSON.parse(line);
+      if (ev.type === "delta") { reply += ev.text; typer.push(ev.text); }
+      else if (ev.type === "crisis") { reply = ev.text; bubble.classList.add("crisis"); typer.push(ev.text); }
+      else if (ev.type === "error") failed = true;
+    };
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      lines.forEach(handle);
+    }
+    handle(buf);
+  } catch { failed = true; }
+  if (failed && !reply) typer.push("The Companion is unavailable right now. Please try again in a moment.");
+  await typer.end();
+  if (reply) history.push({ role: "user", content: message }, { role: "assistant", content: reply });
   send.disabled = false; input.focus();
 };
 </script>
