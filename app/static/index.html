@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wavebreak</title>
+<style>
+  :root { --bg:#f4f7f9; --fg:#1b2a33; --muted:#5b6b75; --accent:#2a7f9e; --card:#fff; --crisis:#fdecea; --border:#d5dee3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#10181d; --fg:#e6eef2; --muted:#93a4ae; --accent:#58b4d1; --card:#18242b; --crisis:#3a1f1f; --border:#2a3a43; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); display:flex; flex-direction:column; height:100dvh; }
+  header { padding:12px 16px; font-weight:600; border-bottom:1px solid var(--border); }
+  #disclaimer { display:flex; gap:12px; align-items:flex-start; padding:10px 16px; background:var(--card); border-bottom:1px solid var(--border); color:var(--muted); font-size:14px; }
+  #disclaimer button { margin-left:auto; background:none; border:0; color:var(--fg); font-size:18px; cursor:pointer; }
+  #log { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:min(85%, 560px); padding:10px 14px; border-radius:14px; white-space:pre-wrap; background:var(--card); border:1px solid var(--border); }
+  .me { align-self:flex-end; background:var(--accent); color:#fff; border-color:var(--accent); }
+  .crisis { background:var(--crisis); }
+  form { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
+  input { flex:1; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--fg); font:inherit; }
+  form button { padding:0 18px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button:disabled { opacity:.5; }
+</style>
+</head>
+<body>
+<header>Wavebreak</header>
+<div id="disclaimer"><span id="disclaimer-text"></span><button id="close" aria-label="Close notice">&times;</button></div>
+<main id="log" aria-live="polite"></main>
+<form id="form">
+  <input id="input" autocomplete="off" maxlength="4000" placeholder="What's going on?" aria-label="Message">
+  <button id="send">Send</button>
+</form>
+<script>
+const log = document.getElementById("log"), input = document.getElementById("input"), send = document.getElementById("send");
+const add = (text, cls) => { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; };
+fetch("/chat/start").then(r => r.json()).then(d => document.getElementById("disclaimer-text").textContent = d.disclaimer);
+document.getElementById("close").onclick = () => document.getElementById("disclaimer").remove();
+document.getElementById("form").onsubmit = async (e) => {
+  e.preventDefault();
+  const message = input.value.trim();
+  if (!message) return;
+  add(message, "me"); input.value = ""; send.disabled = true;
+  try {
+    const r = await fetch("/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    add(d.reply, d.crisis ? "crisis" : "bot");
+  } catch { add("The Companion is unavailable right now. Please try again in a moment.", "bot"); }
+  send.disabled = false; input.focus();
+};
+</script>
+</body>
+</html>

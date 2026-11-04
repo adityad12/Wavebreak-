@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.config import build_llm
@@ -6,6 +9,8 @@ from app.crisis.classifier import LLMCrisisClassifier
 from app.crisis.detector import CrisisDetector
 from app.llm import LLMClient, LLMUnavailable, UnconfiguredLLM
 from app.messages import CRISIS_MESSAGE, DISCLAIMER
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 COMPANION_SYSTEM = (
     "You are a warm, calm AI companion helping someone through an urge to return to "
@@ -28,6 +33,10 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
     llm = llm or UnconfiguredLLM()
     detector = CrisisDetector(LLMCrisisClassifier(llm))
     app = FastAPI(title="Wavebreak")
+
+    @app.get("/", include_in_schema=False)
+    async def index() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html")
 
     @app.get("/chat/start")
     async def chat_start() -> dict[str, str]:

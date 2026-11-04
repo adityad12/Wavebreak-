@@ -58,6 +58,13 @@ def test_empty_and_oversized_messages_rejected():
     assert client.post("/chat", json={"message": "x" * 4001}).status_code == 422
 
 
+def test_index_serves_chat_page_with_closable_disclaimer():
+    response = TestClient(create_app()).get("/")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert 'id="disclaimer"' in response.text and 'id="close"' in response.text
+
+
 def test_disclaimer_endpoint():
     disclaimer = TestClient(create_app()).get("/chat/start").json()["disclaimer"]
     assert "isn't professional advice" in disclaimer
