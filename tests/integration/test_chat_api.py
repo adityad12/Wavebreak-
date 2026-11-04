@@ -215,6 +215,14 @@ def test_index_serves_chat_page_with_closable_disclaimer():
     assert 'id="disclaimer"' in response.text and 'id="close"' in response.text
 
 
+def test_page_has_stop_control_and_stop_shortcuts():
+    """Markup-level check only; the behaviour itself needs browser tests (ticket 05)."""
+    html = TestClient(create_app()).get("/").text
+    assert 'class="stop-icon"' in html and "Stop generating" in html
+    assert "AbortController" in html and '"Escape"' in html
+    assert "trailing whitespace" in html  # guard against the stuck-typer bug returning
+
+
 def test_disclaimer_endpoint():
     disclaimer = TestClient(create_app()).get("/chat/start").json()["disclaimer"]
     assert "isn't professional advice" in disclaimer

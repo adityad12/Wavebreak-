@@ -2,44 +2,138 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#35614c">
 <title>Wavebreak</title>
 <style>
-  :root { --bg:#f4f7f9; --fg:#1b2a33; --muted:#5b6b75; --accent:#2a7f9e; --card:#fff; --crisis:#fdecea; --border:#d5dee3; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#10181d; --fg:#e6eef2; --muted:#93a4ae; --accent:#58b4d1; --card:#18242b; --crisis:#3a1f1f; --border:#2a3a43; }
+  /* Palette: sage (growth, recovery) and warm sand (comfort). Clay is kept for urgent messages only. */
+  :root {
+    --bg-top:#f8f5ed; --bg-bottom:#e2ebe0;
+    --surface:rgba(255,255,255,.72); --surface-solid:#ffffff;
+    --ink:#23332b; --muted:#5a6b60; --line:rgba(35,51,43,.13);
+    --accent:#4d8066; --accent-deep:#35614c; --accent-ink:#ffffff; --warm:#e6c79a;
+    --crisis-bg:#fbeee6; --crisis-line:#e5bea6;
+    --wave-1:rgba(77,128,102,.17); --wave-2:rgba(77,128,102,.11); --wave-3:rgba(230,199,154,.22);
+    --shadow:0 10px 30px -14px rgba(35,51,43,.32);
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   }
-  * { box-sizing: border-box; }
-  body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); display:flex; flex-direction:column; height:100dvh; }
-  header { padding:12px 16px; font-weight:600; border-bottom:1px solid var(--border); }
-  #disclaimer { display:flex; gap:12px; align-items:flex-start; padding:10px 16px; background:var(--card); border-bottom:1px solid var(--border); color:var(--muted); font-size:14px; }
-  #disclaimer button { margin-left:auto; background:none; border:0; color:var(--fg); font-size:18px; cursor:pointer; }
-  #memory { padding:8px 16px; font-size:14px; color:var(--muted); border-bottom:1px solid var(--border); }
-  #memory pre { white-space:pre-wrap; margin:8px 0 0; font:inherit; }
-  #log { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
-  .msg { max-width:min(85%, 560px); padding:10px 14px; border-radius:14px; white-space:pre-wrap; background:var(--card); border:1px solid var(--border); }
-  .me { align-self:flex-end; background:var(--accent); color:#fff; border-color:var(--accent); }
-  .crisis { background:var(--crisis); }
-  .dots span { display:inline-block; width:7px; height:7px; margin:0 2px; border-radius:50%; background:var(--muted); animation:blink 1.2s infinite; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-top:#0e1914; --bg-bottom:#17291f;
+      --surface:rgba(255,255,255,.06); --surface-solid:#1d3027;
+      --ink:#e9f0ea; --muted:#9bb2a3; --line:rgba(233,240,234,.14);
+      --accent:#8cc5a2; --accent-deep:#5fa07b; --accent-ink:#0c1f16; --warm:#d9b58a;
+      --crisis-bg:#3a2b23; --crisis-line:#7d5a47;
+      --wave-1:rgba(140,197,162,.14); --wave-2:rgba(140,197,162,.09); --wave-3:rgba(217,181,138,.10);
+      --shadow:0 10px 30px -14px rgba(0,0,0,.65);
+    }
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    margin:0; font:16px/1.55 var(--sans); color:var(--ink);
+    background:linear-gradient(180deg,var(--bg-top),var(--bg-bottom)) fixed;
+    display:flex; flex-direction:column; height:100dvh; overflow:hidden;
+  }
+  .waves { position:fixed; inset:auto 0 0 0; height:42vh; z-index:0; pointer-events:none; }
+  .waves svg { position:absolute; bottom:0; width:200%; height:100%; }
+  .waves .w1 { fill:var(--wave-1); animation:drift 38s linear infinite; }
+  .waves .w2 { fill:var(--wave-2); animation:drift 56s linear infinite reverse; }
+  .waves .w3 { fill:var(--wave-3); animation:drift 80s linear infinite; }
+  @keyframes drift { to { transform:translateX(-50%); } }
+
+  .app { position:relative; z-index:1; display:flex; flex-direction:column; flex:1; min-height:0; width:100%; max-width:760px; margin:0 auto; padding:0 16px; }
+  header { display:flex; align-items:center; gap:10px; padding:calc(14px + env(safe-area-inset-top)) 4px 8px; }
+  .mark { width:30px; height:30px; flex:none; }
+  .brand { font:600 22px/1 var(--serif); letter-spacing:.2px; }
+  .tag { margin-left:auto; font-size:13px; color:var(--muted); }
+
+  #disclaimer { display:flex; align-items:flex-start; gap:10px; margin:4px 0 6px; padding:10px 12px 10px 14px; border:1px solid var(--line); border-radius:14px; background:var(--surface); backdrop-filter:blur(8px); color:var(--muted); font-size:13.5px; line-height:1.45; }
+  #disclaimer-text { flex:1; }
+  #close { flex:none; width:26px; height:26px; margin:-2px 0; border:0; border-radius:50%; background:transparent; color:var(--muted); font-size:20px; line-height:1; cursor:pointer; }
+  #close:hover { background:var(--line); color:var(--ink); }
+
+  #memory { margin:2px 0 4px; font-size:13px; color:var(--muted); }
+  #memory summary { cursor:pointer; list-style:none; display:inline-block; padding:4px 12px; border:1px solid var(--line); border-radius:999px; background:var(--surface); }
+  #memory summary::-webkit-details-marker { display:none; }
+  #memory pre { white-space:pre-wrap; margin:8px 0 0; padding:12px 14px; border:1px solid var(--line); border-radius:14px; background:var(--surface); font:inherit; }
+
+  #log { flex:1; min-height:0; overflow-y:auto; padding:12px 2px 8px; display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth; }
+  .msg { max-width:min(86%,560px); padding:11px 16px; border-radius:20px; white-space:pre-wrap; overflow-wrap:anywhere; animation:rise .28s ease both; }
+  .bot { align-self:flex-start; background:var(--surface-solid); border:1px solid var(--line); border-bottom-left-radius:6px; box-shadow:var(--shadow); }
+  .me { align-self:flex-end; background:linear-gradient(135deg,var(--accent),var(--accent-deep)); color:var(--accent-ink); border-bottom-right-radius:6px; box-shadow:var(--shadow); }
+  .crisis { background:var(--crisis-bg); border-color:var(--crisis-line); }
+  .dots { padding:15px 18px; }
+  .dots span { display:inline-block; width:7px; height:7px; margin:0 2.5px; border-radius:50%; background:var(--muted); animation:blink 1.2s infinite; }
   .dots span:nth-child(2) { animation-delay:.2s; }
   .dots span:nth-child(3) { animation-delay:.4s; }
-  @keyframes blink { 0%, 80%, 100% { opacity:.25; } 40% { opacity:1; } }
-  @media (prefers-reduced-motion: reduce) { .dots span { animation:none; } }
-  form { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
-  input { flex:1; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--fg); font:inherit; }
-  form button { padding:0 18px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
-  button:disabled { opacity:.5; }
+  @keyframes blink { 0%,80%,100% { opacity:.25; transform:translateY(0); } 40% { opacity:1; transform:translateY(-3px); } }
+  @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  #empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; text-align:center; padding:0 12px 6vh; }
+  .breath { position:relative; width:132px; height:132px; margin-bottom:22px; }
+  .breath i { position:absolute; inset:0; border-radius:50%; border:1.5px solid var(--accent); opacity:0; animation:ring 7s ease-out infinite; }
+  .breath i:nth-child(2) { animation-delay:2.3s; }
+  .breath i:nth-child(3) { animation-delay:4.6s; }
+  .breath b { position:absolute; inset:30px; border-radius:50%; background:radial-gradient(circle at 35% 30%,var(--warm),var(--accent) 70%); box-shadow:0 0 44px -6px var(--accent); animation:breathe 7s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { transform:scale(.82); } 50% { transform:scale(1.08); } }
+  @keyframes ring { 0% { transform:scale(.55); opacity:.55; } 100% { transform:scale(1.25); opacity:0; } }
+  #empty h1 { margin:0; font:600 clamp(26px,5vw,34px)/1.2 var(--serif); }
+  #empty p { margin:0; max-width:34ch; color:var(--muted); }
+
+  form { display:flex; align-items:flex-end; gap:8px; margin:6px 0 calc(14px + env(safe-area-inset-bottom)); padding:8px 8px 8px 18px; border:1px solid var(--line); border-radius:28px; background:var(--surface-solid); box-shadow:var(--shadow); }
+  form:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent), var(--shadow); }
+  textarea { flex:1; resize:none; border:0; outline:0; background:transparent; color:var(--ink); font:inherit; line-height:1.45; padding:9px 0; max-height:140px; }
+  textarea::placeholder { color:var(--muted); }
+  #send { flex:none; width:42px; height:42px; border:0; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent-deep)); color:var(--accent-ink); display:grid; place-items:center; cursor:pointer; transition:transform .15s ease; }
+  #send:hover { transform:scale(1.06); }
+  #send svg { width:19px; height:19px; }
+  #send .stop-icon { display:none; }
+  #send.stop .send-icon { display:none; }
+  #send.stop .stop-icon { display:block; }
+  button:focus-visible, summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  @media (max-width: 520px) { .tag { display:none; } .app { padding:0 12px; } }
+  @media (prefers-reduced-motion: reduce) {
+    .waves svg, .breath i, .breath b, .dots span, .msg { animation:none; }
+    .breath i { opacity:.25; }
+    #log { scroll-behavior:auto; }
+  }
 </style>
 </head>
 <body>
-<header>Wavebreak</header>
-<div id="disclaimer"><span id="disclaimer-text"></span><button id="close" aria-label="Close notice">&times;</button></div>
-<details id="memory" hidden><summary>What I remember from earlier in this chat</summary><pre id="memory-text"></pre></details>
-<main id="log" aria-live="polite"></main>
-<form id="form">
-  <input id="input" autocomplete="off" maxlength="4000" placeholder="What's going on?" aria-label="Message">
-  <button id="send">Send</button>
-</form>
+<div class="waves" aria-hidden="true">
+  <svg class="w3" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,200 C180,150 360,250 540,200 C720,150 900,250 1080,200 C1260,150 1350,220 1440,200 C1620,150 1800,250 1980,200 C2160,150 2340,250 2520,200 C2700,150 2790,220 2880,200 L2880,320 L0,320Z"/></svg>
+  <svg class="w2" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,230 C200,180 380,280 580,230 C780,180 960,280 1160,230 C1300,195 1380,245 1440,230 C1640,180 1820,280 2020,230 C2220,180 2400,280 2600,230 C2740,195 2820,245 2880,230 L2880,320 L0,320Z"/></svg>
+  <svg class="w1" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,262 C160,230 340,290 520,262 C700,232 880,292 1060,262 C1240,232 1360,278 1440,262 C1600,230 1780,290 1960,262 C2140,232 2320,292 2500,262 C2680,232 2800,278 2880,262 L2880,320 L0,320Z"/></svg>
+</div>
+<div class="app">
+  <header>
+    <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <circle cx="16" cy="16" r="15" fill="var(--accent)" opacity=".18"/>
+      <path d="M5 19c3.2-5 6.2-5 8.4-1.4 2.2 3.6 4.8 3.6 7.1-.4 1.4-2.4 3.2-3.4 5.5-3" stroke="var(--accent-deep)" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>
+    <span class="brand">Wavebreak</span>
+    <span class="tag">here when an urge hits</span>
+  </header>
+  <div id="disclaimer"><span id="disclaimer-text"></span><button id="close" aria-label="Close notice">&times;</button></div>
+  <details id="memory" hidden><summary>What I remember from earlier in this chat</summary><pre id="memory-text"></pre></details>
+  <main id="log" aria-live="polite">
+    <div id="empty">
+      <div class="breath" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+      <h1>Take a breath.<br>What's going on?</h1>
+      <p>An urge is a wave. It rises, peaks, and passes. I'll stay with you until it does.</p>
+    </div>
+  </main>
+  <form id="form">
+    <textarea id="input" rows="1" maxlength="4000" placeholder="Tell me what you're feeling…" aria-label="Message"></textarea>
+    <button id="send" type="submit" aria-label="Send message">
+      <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      <svg class="stop-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
+    </button>
+  </form>
+</div>
 <script>
 const log = document.getElementById("log"), input = document.getElementById("input"), send = document.getElementById("send");
 const add = (text, cls) => { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; };
@@ -67,11 +161,14 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 // Reveals text in `pending` one word at a time, while more may still be arriving.
 // The bubble is only created when the first word is ready, so no empty box appears while waiting.
 function makeTyper(createBubble) {
-  let pending = "", shown = "", done = false, bubble = null, crisis = false;
+  let pending = "", shown = "", done = false, halted = false, bubble = null, crisis = false;
   const finished = (async () => {
-    while (!done || pending) {
+    while (!halted && (!done || pending)) {
       const m = pending.match(/^\s*\S+\s*/);
-      if (!m) { await sleep(20); continue; }
+      if (!m) {
+        if (done) break;  // only trailing whitespace is left: nothing worth showing, and waiting would hang
+        await sleep(20); continue;
+      }
       pending = pending.slice(m[0].length);
       shown += m[0];
       if (!bubble) { bubble = createBubble(); if (crisis) bubble.classList.add("crisis"); }
@@ -83,23 +180,54 @@ function makeTyper(createBubble) {
     push: (t) => { pending += t; },
     markCrisis: () => { crisis = true; if (bubble) bubble.classList.add("crisis"); },
     end: () => { done = true; return finished; },
+    // Stops at once, keeping exactly what the user has already seen, and returns it.
+    stop: () => { halted = true; pending = ""; return shown; },
   };
 }
+const form = document.getElementById("form");
+const autosize = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 140) + "px"; };
+input.addEventListener("input", autosize);
+
+let current = null;  // the reply being generated right now, or null
+function setGenerating(on) {
+  send.classList.toggle("stop", on);
+  send.setAttribute("aria-label", on ? "Stop generating" : "Send message");
+}
+function stopGeneration() {
+  if (!current || current.stopped) return;
+  current.stopped = true;
+  current.controller.abort();
+}
+// Enter sends; Shift+Enter makes a new line. While a reply is being written, Enter does nothing.
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!current) form.requestSubmit(); }
+});
+// Escape, or Ctrl+C / Cmd+C with nothing selected, stops the reply. With text selected, Ctrl/Cmd+C still copies.
+document.addEventListener("keydown", (e) => {
+  if (!current) return;
+  const copyKey = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c";
+  const selected = String(getSelection()).length > 0 || (document.activeElement === input && input.selectionStart !== input.selectionEnd);
+  if (e.key === "Escape" || (copyKey && !selected)) { e.preventDefault(); stopGeneration(); }
+});
 fetch("/chat/start").then(r => r.json()).then(d => document.getElementById("disclaimer-text").textContent = d.disclaimer);
 document.getElementById("close").onclick = () => document.getElementById("disclaimer").remove();
-document.getElementById("form").onsubmit = async (e) => {
+form.onsubmit = async (e) => {
   e.preventDefault();
+  if (current) { stopGeneration(); return; }  // the button is a stop button while a reply is being written
   const message = input.value.trim();
   if (!message) return;
-  add(message, "me"); input.value = ""; send.disabled = true;
+  document.getElementById("empty")?.remove();
+  add(message, "me"); input.value = ""; autosize();
   // Typing dots show while we wait; the reply bubble replaces them when the first word is ready.
   const dots = add("", "bot dots");
   dots.setAttribute("aria-label", "The Companion is typing");
   dots.innerHTML = "<span></span><span></span><span></span>";
   const typer = makeTyper(() => { dots.remove(); return add("", "bot"); });
+  const run = current = { controller: new AbortController(), stopped: false };
+  setGenerating(true);
   let reply = "", failed = false;
   try {
-    const r = await fetch("/chat/stream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, history, summary, facts }) });
+    const r = await fetch("/chat/stream", { method: "POST", signal: run.controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, history, summary, facts }) });
     if (!r.ok) throw new Error();
     const reader = r.body.getReader(), decoder = new TextDecoder();
     let buf = "";
@@ -118,12 +246,18 @@ document.getElementById("form").onsubmit = async (e) => {
       lines.forEach(handle);
     }
     handle(buf);
-  } catch { failed = true; }
-  if (failed && !reply) typer.push("The Companion is unavailable right now. Please try again in a moment.");
-  await typer.end();
+  } catch { if (!run.stopped) failed = true; }
+  let saved;
+  if (run.stopped) {
+    saved = typer.stop();  // keep only what the user actually saw
+  } else {
+    if (failed && !reply) typer.push("The Companion is unavailable right now. Please try again in a moment.");
+    await typer.end();
+    saved = reply;
+  }
   dots.remove();  // no-op if the reply already replaced them
-  if (reply) { history.push({ role: "user", content: message }, { role: "assistant", content: reply }); maybeCompact(); }
-  send.disabled = false; input.focus();
+  if (saved.trim()) { history.push({ role: "user", content: message }, { role: "assistant", content: saved }); maybeCompact(); }
+  current = null; setGenerating(false); input.focus();
 };
 </script>
 </body>

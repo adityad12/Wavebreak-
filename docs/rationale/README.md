@@ -33,3 +33,4 @@ Open decisions get a placeholder here until they are decided.
 - [0007 Crisis classifier model](0007-crisis-classifier-model.md) — open
 - [0008 Conversation history and streaming design](0008-stateless-history-and-streaming.md)
 - [0009 Reducing history tokens](0009-reducing-history-tokens.md)
+- [0010 Color palette](0010-calming-color-palette.md)
