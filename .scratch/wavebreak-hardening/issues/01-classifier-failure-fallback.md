@@ -2,7 +2,7 @@
 
 Status: needs-triage
 
-Raised by Claude while building the Gemini adapter, 2026-11-04. Related to open decision `docs/decisions/0005-classifier-failure-behaviour.md`.
+Raised by Claude while building the Gemini adapter, 2026-11-04. Related to open decision 0005 in `docs/decisions.md`.
 
 ## Problem
 When the LLM classifier errors, `CrisisDetector` falls back to the keyword layer only (`app/crisis/detector.py`). A crisis phrased without a keyword is then answered as a normal chat message. This is a placeholder, not a decision.

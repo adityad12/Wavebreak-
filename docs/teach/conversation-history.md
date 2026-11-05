@@ -132,13 +132,13 @@ The keyword check still reads only the latest message. Otherwise one old phrase 
 
 ## 6. Stateless vs stored history
 
-We chose to have the browser hold the history and the server store nothing (decision [0008](../decisions/0008-stateless-history-and-streaming.md)). The alternative is for the server to remember the conversation. Google's newer Interactions API does this for you with `previous_interaction_id`, and it also shows the stateless pattern with `store=False` ([migration guide](https://ai.google.dev/gemini-api/docs/migrate-to-interactions)).
+We chose to have the browser hold the history and the server store nothing (decision [0008](../decisions.md#0008-conversation-history-and-streaming-design)). The alternative is for the server to remember the conversation. Google's newer Interactions API does this for you with `previous_interaction_id`, and it also shows the stateless pattern with `store=False` ([migration guide](https://ai.google.dev/gemini-api/docs/migrate-to-interactions)).
 
 For Wavebreak, stored chats would mean holding sensitive conversations. That's why stateless won (see ADR [0002](../adr/0002-no-real-user-data-until-paid-llm-tier.md)).
 
 ## 7. Remembering more without sending more: summary and notes
 
-The 20-message window forgets older messages. To keep the gist, we added two things (decision [0009](../decisions/0009-reducing-history-tokens.md)):
+The 20-message window forgets older messages. To keep the gist, we added two things (decision [0009](../decisions.md#0009-reducing-history-tokens)):
 
 - a **rolling summary**: a short paragraph of what the conversation was about
 - **notes**: a short list of facts worth keeping (triggers, what helps)

@@ -2,7 +2,7 @@
 
 Status: needs-triage
 
-Raised by Claude, 2026-11-04. Related to `docs/decisions/0006-default-gemini-model.md`.
+Raised by Claude, 2026-11-04. Related to decision 0006 in `docs/decisions.md`.
 
 ## Problem
 - `gemini-2.5-flash` was retired for new users (404), and larger models returned 503 and 429. A retired or unavailable model only shows up to the user as "Companion unavailable".

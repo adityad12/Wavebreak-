@@ -34,7 +34,7 @@ class CrisisDetector:
         try:
             flagged = await self._classifier.is_crisis(text, context)
         except Exception:
-            # On failure we fall back to keywords only; see docs/decisions/0005.
+            # On failure we fall back to keywords only; see decision 0005 in docs/decisions.md.
             log.exception("Crisis classifier failed")
             failed = True
         return CrisisResult(
