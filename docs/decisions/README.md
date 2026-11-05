@@ -37,3 +37,4 @@ Short records of choices between real alternatives: the options, and what you pi
 - [0008 Conversation history and streaming design](0008-stateless-history-and-streaming.md)
 - [0009 Reducing history tokens](0009-reducing-history-tokens.md)
 - [0010 Color palette](0010-calming-color-palette.md)
+- [0011 Companion persona](0011-companion-persona.md)

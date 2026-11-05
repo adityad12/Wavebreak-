@@ -60,6 +60,13 @@
   #memory pre { white-space:pre-wrap; margin:8px 0 0; padding:12px 14px; border:1px solid var(--line); border-radius:14px; background:var(--surface); font:inherit; }
 
   #log { flex:1; min-height:0; overflow-y:auto; padding:12px 2px 8px; display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth; }
+  /* Slim, rounded scrollbar tinted to the palette. scrollbar-width/-color is the standard
+     (Firefox, recent Chrome); the ::-webkit rules are the fallback for older Chromium/Safari. */
+  #log { scrollbar-width:thin; scrollbar-color:color-mix(in srgb,var(--accent) 45%,transparent) transparent; }
+  #log::-webkit-scrollbar { width:10px; }
+  #log::-webkit-scrollbar-track { background:transparent; }
+  #log::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--accent) 40%,transparent); border-radius:999px; border:3px solid transparent; background-clip:content-box; }
+  #log::-webkit-scrollbar-thumb:hover { background:color-mix(in srgb,var(--accent) 70%,transparent); background-clip:content-box; }
   .msg { max-width:min(86%,560px); padding:11px 16px; border-radius:20px; white-space:pre-wrap; overflow-wrap:anywhere; animation:rise .28s ease both; }
   .bot { align-self:flex-start; background:var(--surface-solid); border:1px solid var(--line); border-bottom-left-radius:6px; box-shadow:var(--shadow); }
   .me { align-self:flex-end; background:linear-gradient(135deg,var(--accent),var(--accent-deep)); color:var(--accent-ink); border-bottom-right-radius:6px; box-shadow:var(--shadow); }

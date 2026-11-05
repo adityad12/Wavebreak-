@@ -59,3 +59,11 @@ async def test_unconfigured_llm_stream_raises_unavailable():
     with pytest.raises(LLMUnavailable):
         async for _ in UnconfiguredLLM().stream("s", [Message("user", "hi")]):
             pass
+
+
+def test_companion_persona_is_wavebreak_not_gemini():
+    from app.main import COMPANION_SYSTEM
+
+    assert COMPANION_SYSTEM.startswith("You are Wavebreak")
+    assert "Never introduce yourself as Gemini" in COMPANION_SYSTEM
+    assert "never claim to be human" in COMPANION_SYSTEM.lower()
